@@ -88,12 +88,15 @@ input,select{
   background:#fff3ec;
   font-weight:bold;
 }
-.spin{
-  animation: spin .6s ease;
+.rolling{
+  animation: shake .15s infinite;
 }
-@keyframes spin{
+@keyframes shake{
   0%{transform:rotate(0deg)}
-  100%{transform:rotate(360deg)}
+  25%{transform:rotate(3deg)}
+  50%{transform:rotate(0deg)}
+  75%{transform:rotate(-3deg)}
+  100%{transform:rotate(0deg)}
 }
 footer{
   text-align:center;
@@ -185,7 +188,8 @@ function simpanAbsensi(){
     waktu:new Date().toLocaleString("id-ID")
   });
 
-  nama.value=""; unit.value="";
+  document.getElementById("nama").value="";
+  document.getElementById("unit").value="";
   alert("Absensi berhasil");
 }
 
@@ -230,7 +234,7 @@ db.ref("absensi").on("value",snap=>{
   chart.update();
 });
 
-// ================= SPINNER DADU =================
+// ================= SPINNER DADU + SOUND =================
 const dadu=[
   "🎲 Geser 3 kali ke kanan",
   "🎲 Geser 5 kali ke kiri",
@@ -241,12 +245,44 @@ const dadu=[
   "🎲 Geser 1 kali ke kanan"
 ];
 
+let sedangPutar=false;
+let audioCtx, oscillator;
+
+function mulaiSound(){
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  oscillator=audioCtx.createOscillator();
+  oscillator.frequency.setValueAtTime(300,audioCtx.currentTime);
+  oscillator.type="square";
+  oscillator.connect(audioCtx.destination);
+  oscillator.start();
+}
+
+function stopSound(){
+  if(oscillator){
+    oscillator.stop();
+    audioCtx.close();
+  }
+}
+
 function putarDadu(){
+  if(sedangPutar) return;
+  sedangPutar=true;
+
   const box=document.getElementById("hasilDadu");
-  box.classList.remove("spin");
-  void box.offsetWidth;
-  box.classList.add("spin");
-  box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
+  box.classList.add("rolling");
+  mulaiSound();
+
+  const interval=setInterval(()=>{
+    box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
+  },120);
+
+  setTimeout(()=>{
+    clearInterval(interval);
+    box.classList.remove("rolling");
+    stopSound();
+    box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
+    sedangPutar=false;
+  },5000); // ⏱️ 5 DETIK
 }
 </script>
 
