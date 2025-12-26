@@ -27,7 +27,7 @@ body{
 }
 .menu{
   display:flex;
-  gap:8px;
+  gap:6px;
   margin-bottom:16px;
 }
 .menu button{
@@ -37,6 +37,7 @@ body{
   border-radius:12px;
   background:var(--primary);
   color:#fff;
+  font-size:13px;
   cursor:pointer;
 }
 .card{
@@ -78,6 +79,22 @@ input,select{
   border-bottom:1px solid #eee;
   font-size:14px;
 }
+.dice{
+  font-size:20px;
+  text-align:center;
+  margin:20px 0;
+  padding:16px;
+  border-radius:12px;
+  background:#fff3ec;
+  font-weight:bold;
+}
+.spin{
+  animation: spin .6s ease;
+}
+@keyframes spin{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
+}
 footer{
   text-align:center;
   font-size:12px;
@@ -95,6 +112,7 @@ footer{
     <button onclick="showSection('absen')">Input Absen</button>
     <button onclick="showSection('dashboard')">Dashboard</button>
     <button onclick="showSection('list')">Daftar Hadir</button>
+    <button onclick="showSection('dadu')">🎲 Dadu Kado</button>
   </div>
 
   <!-- INPUT ABSEN -->
@@ -129,6 +147,13 @@ footer{
     <div id="daftarHadir"></div>
   </div>
 
+  <!-- SPINNER DADU -->
+  <div class="card" id="dadu" style="display:none">
+    <h2>🎲 Spinner Tukar Kado</h2>
+    <div id="hasilDadu" class="dice">Tekan tombol untuk memutar dadu</div>
+    <button class="btn" onclick="putarDadu()">Putar Dadu 🎲</button>
+  </div>
+
   <footer>© Absensi Penunjang Medis</footer>
 
 </div>
@@ -142,35 +167,26 @@ const db = firebase.database();
 
 // ================= MENU =================
 function showSection(id){
-  ["absen","dashboard","list"].forEach(s=>{
+  ["absen","dashboard","list","dadu"].forEach(s=>{
     document.getElementById(s).style.display="none";
   });
   document.getElementById(id).style.display="block";
-
-  if(id==="dashboard" && chart){
-    chart.resize();
-  }
+  if(id==="dashboard") chart.resize();
 }
 
 // ================= SIMPAN ABSENSI =================
 function simpanAbsensi(){
-  const nama = document.getElementById("nama").value.trim();
-  const unit = document.getElementById("unit").value;
-
-  if(!nama || !unit){
-    alert("Nama dan Unit wajib diisi");
-    return;
-  }
+  const nama=document.getElementById("nama").value.trim();
+  const unit=document.getElementById("unit").value;
+  if(!nama||!unit) return alert("Nama dan Unit wajib diisi");
 
   db.ref("absensi").push({
-    nama:nama,
-    unit:unit,
+    nama, unit,
     waktu:new Date().toLocaleString("id-ID")
   });
 
-  document.getElementById("nama").value="";
-  document.getElementById("unit").value="";
-  alert("Absensi berhasil disimpan");
+  nama.value=""; unit.value="";
+  alert("Absensi berhasil");
 }
 
 // ================= DASHBOARD =================
@@ -182,44 +198,56 @@ const unitData={
   "Gizi":0
 };
 
-const ctx=document.getElementById("chartKehadiran").getContext("2d");
-const chart=new Chart(ctx,{
-  type:"bar",
-  data:{
-    labels:Object.keys(unitData),
-    datasets:[{
-      data:Object.values(unitData),
-      backgroundColor:"#f38c5b"
-    }]
-  },
-  options:{
-    responsive:true,
-    plugins:{legend:{display:false}},
-    scales:{y:{beginAtZero:true}}
+const chart=new Chart(
+  document.getElementById("chartKehadiran"),
+  {
+    type:"bar",
+    data:{
+      labels:Object.keys(unitData),
+      datasets:[{
+        data:Object.values(unitData),
+        backgroundColor:"#f38c5b"
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{y:{beginAtZero:true}}
+    }
   }
-});
+);
 
-// ================= REALTIME LISTENER =================
+// ================= REALTIME =================
 db.ref("absensi").on("value",snap=>{
   Object.keys(unitData).forEach(k=>unitData[k]=0);
   const list=document.getElementById("daftarHadir");
   list.innerHTML="";
-
   snap.forEach(c=>{
     const d=c.val();
-    if(unitData[d.unit]!==undefined){
-      unitData[d.unit]++;
-    }
-    list.innerHTML+=`
-      <div>
-        <b>${d.nama}</b><br>
-        ${d.unit} • ${d.waktu}
-      </div>`;
+    if(unitData[d.unit]!==undefined) unitData[d.unit]++;
+    list.innerHTML+=`<div><b>${d.nama}</b><br>${d.unit} • ${d.waktu}</div>`;
   });
-
   chart.data.datasets[0].data=Object.values(unitData);
   chart.update();
 });
+
+// ================= SPINNER DADU =================
+const dadu=[
+  "🎲 Geser 3 kali ke kanan",
+  "🎲 Geser 5 kali ke kiri",
+  "🎲 Geser 2 kali ke kanan",
+  "🎲 Geser 6 kali ke kiri",
+  "🎲 Geser 4 kali ke kanan",
+  "🎲 Geser 7 kali ke kiri",
+  "🎲 Geser 1 kali ke kanan"
+];
+
+function putarDadu(){
+  const box=document.getElementById("hasilDadu");
+  box.classList.remove("spin");
+  void box.offsetWidth;
+  box.classList.add("spin");
+  box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
+}
 </script>
 
 </body>
