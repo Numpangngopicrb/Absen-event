@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Absensi & Dashboard Kehadiran</title>
 
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -31,6 +28,23 @@ body {
   padding: 16px;
 }
 
+.menu {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.menu button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .card {
   background: var(--white);
   border-radius: 16px;
@@ -51,32 +65,38 @@ label {
   margin-top: 12px;
 }
 
-input, select, button {
+input, select {
   width: 100%;
   padding: 12px;
   margin-top: 6px;
   border-radius: 10px;
   border: 1px solid #ddd;
-  font-size: 16px;
 }
 
-button {
+.btn {
   background: var(--primary);
   color: white;
   border: none;
+  width: 100%;
+  padding: 12px;
   margin-top: 18px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
-button:hover {
-  opacity: 0.9;
+.list {
+  font-size: 14px;
+}
+
+.list div {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
 }
 
 footer {
   text-align: center;
   font-size: 12px;
   color: #777;
-  margin-top: 20px;
 }
 </style>
 </head>
@@ -85,73 +105,81 @@ footer {
 
 <div class="container">
 
-  <!-- FORM ABSENSI -->
-  <div class="card">
-    <h2>Absensi Kehadiran</h2>
+  <!-- TOOL MENU -->
+  <div class="menu">
+    <button onclick="showSection('absen')">Input Absen</button>
+    <button onclick="showSection('dashboard')">Dashboard</button>
+    <button onclick="showSection('list')">Daftar Hadir</button>
+  </div>
+
+  <!-- INPUT ABSEN -->
+  <div class="card" id="absen">
+    <h2>Input Absensi</h2>
 
     <label>Nama</label>
-    <input type="text" id="nama" placeholder="Masukkan Nama" required>
+    <input type="text" id="nama">
 
     <label>Unit</label>
     <select id="unit">
       <option value="">-- Pilih Unit --</option>
-      <option value="Rekam Medis">Rekam Medis</option>
-      <option value="Radiologi">Radiologi</option>
-      <option value="Laboratorium">Laboratorium</option>
-      <option value="Farmasi">Farmasi</option>
-      <option value="Gizi">Gizi</option>
+      <option>Rekam Medis</option>
+      <option>Radiologi</option>
+      <option>Laboratorium</option>
+      <option>Farmasi</option>
+      <option>Gizi</option>
     </select>
 
-    <button onclick="simpanAbsensi()">Simpan Kehadiran</button>
+    <button class="btn" onclick="simpanAbsensi()">Simpan Kehadiran</button>
   </div>
 
   <!-- DASHBOARD -->
-  <div class="card">
+  <div class="card" id="dashboard" style="display:none">
     <h2>Dashboard Kehadiran</h2>
     <canvas id="chartKehadiran"></canvas>
   </div>
 
+  <!-- DAFTAR HADIR -->
+  <div class="card" id="list" style="display:none">
+    <h2>Daftar Hadir</h2>
+    <div id="daftarHadir" class="list"></div>
+  </div>
+
   <footer>
-    © Dashboard Absensi Penunjang Medis
+    © Absensi Penunjang Medis
   </footer>
 
 </div>
 
 <script>
-// ================= FIREBASE CONFIG =================
-// GANTI CONFIG DI BAWAH SESUAI PROJECT ANDA
 const firebaseConfig = {
   databaseURL: "https://dhasboard-dan-absen-penunjang-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ================= SIMPAN ABSENSI =================
-function simpanAbsensi() {
-  const nama = document.getElementById("nama").value;
-  const unit = document.getElementById("unit").value;
+function showSection(id) {
+  ["absen","dashboard","list"].forEach(s => {
+    document.getElementById(s).style.display = "none";
+  });
+  document.getElementById(id).style.display = "block";
+}
 
-  if (!nama || !unit) {
-    alert("Nama dan Unit wajib diisi!");
-    return;
-  }
+function simpanAbsensi() {
+  const nama = nama.value;
+  const unit = document.getElementById("unit").value;
+  if (!nama || !unit) return alert("Lengkapi data!");
 
   db.ref("absensi").push({
-    nama: nama,
-    unit: unit,
-    waktu: new Date().toISOString()
+    nama, unit,
+    waktu: new Date().toLocaleString("id-ID")
   });
 
   document.getElementById("nama").value = "";
   document.getElementById("unit").value = "";
-
-  alert("Absensi berhasil disimpan");
+  alert("Absensi tersimpan");
 }
 
-// ================= DASHBOARD REALTIME =================
-const ctx = document.getElementById("chartKehadiran").getContext("2d");
-
+// DASHBOARD
 const dataUnit = {
   "Rekam Medis": 0,
   "Radiologi": 0,
@@ -160,35 +188,34 @@ const dataUnit = {
   "Gizi": 0
 };
 
-const chart = new Chart(ctx, {
-  type: "bar",
-  data: {
-    labels: Object.keys(dataUnit),
-    datasets: [{
-      label: "Jumlah Kehadiran",
-      data: Object.values(dataUnit),
-      backgroundColor: "#f38c5b"
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { display: false }
+const chart = new Chart(
+  document.getElementById("chartKehadiran"),
+  {
+    type: "bar",
+    data: {
+      labels: Object.keys(dataUnit),
+      datasets: [{
+        data: Object.values(dataUnit),
+        backgroundColor: "#f38c5b"
+      }]
     },
-    scales: {
-      y: { beginAtZero: true }
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
     }
   }
-});
+);
 
-db.ref("absensi").on("value", snapshot => {
-  Object.keys(dataUnit).forEach(key => dataUnit[key] = 0);
+// REALTIME UPDATE
+db.ref("absensi").on("value", snap => {
+  Object.keys(dataUnit).forEach(k => dataUnit[k]=0);
+  document.getElementById("daftarHadir").innerHTML = "";
 
-  snapshot.forEach(child => {
-    const unit = child.val().unit;
-    if (dataUnit[unit] !== undefined) {
-      dataUnit[unit]++;
-    }
+  snap.forEach(c => {
+    const d = c.val();
+    dataUnit[d.unit]++;
+    document.getElementById("daftarHadir").innerHTML +=
+      `<div><b>${d.nama}</b><br>${d.unit} • ${d.waktu}</div>`;
   });
 
   chart.data.datasets[0].data = Object.values(dataUnit);
