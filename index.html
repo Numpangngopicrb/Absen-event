@@ -74,11 +74,6 @@ input,select{
   color:#fff;
   cursor:pointer;
 }
-.list div{
-  padding:10px;
-  border-bottom:1px solid #eee;
-  font-size:14px;
-}
 .dice{
   font-size:20px;
   text-align:center;
@@ -88,16 +83,16 @@ input,select{
   background:#fff3ec;
   font-weight:bold;
 }
-.rolling{
-  animation: shake .15s infinite;
+
+/* ANIMASI PUTAR 5 DETIK */
+.spin{
+  animation: spin 0.4s linear infinite;
 }
-@keyframes shake{
-  0%{transform:rotate(0deg)}
-  25%{transform:rotate(3deg)}
-  50%{transform:rotate(0deg)}
-  75%{transform:rotate(-3deg)}
-  100%{transform:rotate(0deg)}
+@keyframes spin{
+  from{transform:rotate(0deg)}
+  to{transform:rotate(360deg)}
 }
+
 footer{
   text-align:center;
   font-size:12px;
@@ -110,7 +105,6 @@ footer{
 
 <div class="container">
 
-  <!-- MENU -->
   <div class="menu">
     <button onclick="showSection('absen')">Input Absen</button>
     <button onclick="showSection('dashboard')">Dashboard</button>
@@ -121,10 +115,8 @@ footer{
   <!-- INPUT ABSEN -->
   <div class="card" id="absen">
     <h2>Input Absensi</h2>
-
     <label>Nama</label>
     <input type="text" id="nama">
-
     <label>Unit</label>
     <select id="unit">
       <option value="">-- Pilih Unit --</option>
@@ -134,7 +126,6 @@ footer{
       <option>Farmasi</option>
       <option>Gizi</option>
     </select>
-
     <button class="btn" onclick="simpanAbsensi()">Simpan Kehadiran</button>
   </div>
 
@@ -144,13 +135,13 @@ footer{
     <canvas id="chartKehadiran"></canvas>
   </div>
 
-  <!-- DAFTAR HADIR -->
+  <!-- LIST -->
   <div class="card" id="list" style="display:none">
     <h2>Daftar Hadir</h2>
     <div id="daftarHadir"></div>
   </div>
 
-  <!-- SPINNER DADU -->
+  <!-- DADU -->
   <div class="card" id="dadu" style="display:none">
     <h2>🎲 Spinner Tukar Kado</h2>
     <div id="hasilDadu" class="dice">Tekan tombol untuk memutar dadu</div>
@@ -162,13 +153,13 @@ footer{
 </div>
 
 <script>
-// ================= FIREBASE =================
+// FIREBASE
 firebase.initializeApp({
   databaseURL:"https://dhasboard-dan-absen-penunjang-default-rtdb.asia-southeast1.firebasedatabase.app/"
 });
-const db = firebase.database();
+const db=firebase.database();
 
-// ================= MENU =================
+// MENU
 function showSection(id){
   ["absen","dashboard","list","dadu"].forEach(s=>{
     document.getElementById(s).style.display="none";
@@ -177,50 +168,35 @@ function showSection(id){
   if(id==="dashboard") chart.resize();
 }
 
-// ================= SIMPAN ABSENSI =================
+// SIMPAN ABSEN
 function simpanAbsensi(){
-  const nama=document.getElementById("nama").value.trim();
-  const unit=document.getElementById("unit").value;
-  if(!nama||!unit) return alert("Nama dan Unit wajib diisi");
-
+  const namaEl=document.getElementById("nama");
+  const unitEl=document.getElementById("unit");
+  if(!namaEl.value||!unitEl.value) return alert("Lengkapi data");
   db.ref("absensi").push({
-    nama, unit,
+    nama:namaEl.value,
+    unit:unitEl.value,
     waktu:new Date().toLocaleString("id-ID")
   });
-
-  document.getElementById("nama").value="";
-  document.getElementById("unit").value="";
+  namaEl.value="";
+  unitEl.value="";
   alert("Absensi berhasil");
 }
 
-// ================= DASHBOARD =================
+// DASHBOARD
 const unitData={
-  "Rekam Medis":0,
-  "Radiologi":0,
-  "Laboratorium":0,
-  "Farmasi":0,
-  "Gizi":0
+  "Rekam Medis":0,"Radiologi":0,"Laboratorium":0,"Farmasi":0,"Gizi":0
 };
+const chart=new Chart(document.getElementById("chartKehadiran"),{
+  type:"bar",
+  data:{
+    labels:Object.keys(unitData),
+    datasets:[{data:Object.values(unitData),backgroundColor:"#f38c5b"}]
+  },
+  options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+});
 
-const chart=new Chart(
-  document.getElementById("chartKehadiran"),
-  {
-    type:"bar",
-    data:{
-      labels:Object.keys(unitData),
-      datasets:[{
-        data:Object.values(unitData),
-        backgroundColor:"#f38c5b"
-      }]
-    },
-    options:{
-      plugins:{legend:{display:false}},
-      scales:{y:{beginAtZero:true}}
-    }
-  }
-);
-
-// ================= REALTIME =================
+// REALTIME
 db.ref("absensi").on("value",snap=>{
   Object.keys(unitData).forEach(k=>unitData[k]=0);
   const list=document.getElementById("daftarHadir");
@@ -234,7 +210,7 @@ db.ref("absensi").on("value",snap=>{
   chart.update();
 });
 
-// ================= SPINNER DADU + SOUND =================
+// DADU
 const dadu=[
   "🎲 Geser 3 kali ke kanan",
   "🎲 Geser 5 kali ke kiri",
@@ -245,44 +221,14 @@ const dadu=[
   "🎲 Geser 1 kali ke kanan"
 ];
 
-let sedangPutar=false;
-let audioCtx, oscillator;
-
-function mulaiSound(){
-  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  oscillator=audioCtx.createOscillator();
-  oscillator.frequency.setValueAtTime(300,audioCtx.currentTime);
-  oscillator.type="square";
-  oscillator.connect(audioCtx.destination);
-  oscillator.start();
-}
-
-function stopSound(){
-  if(oscillator){
-    oscillator.stop();
-    audioCtx.close();
-  }
-}
-
 function putarDadu(){
-  if(sedangPutar) return;
-  sedangPutar=true;
-
   const box=document.getElementById("hasilDadu");
-  box.classList.add("rolling");
-  mulaiSound();
-
-  const interval=setInterval(()=>{
-    box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
-  },120);
-
+  box.classList.add("spin");
+  box.innerText="🎲 Mengacak dadu...";
   setTimeout(()=>{
-    clearInterval(interval);
-    box.classList.remove("rolling");
-    stopSound();
+    box.classList.remove("spin");
     box.innerText=dadu[Math.floor(Math.random()*dadu.length)];
-    sedangPutar=false;
-  },5000); // ⏱️ 5 DETIK
+  },5000);
 }
 </script>
 
